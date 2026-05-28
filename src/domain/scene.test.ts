@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyScenePatch,
   changedTargets,
+  comparisonReplayModes,
   createBaseScene,
   editTargetInstruction,
   editTargetSchema,
@@ -93,5 +94,9 @@ describe('scene patch model', () => {
     };
 
     expect(changedTargets(before, after)).toEqual(['hud']);
+  });
+
+  it('defines a visible comparison replay sequence', () => {
+    expect(comparisonReplayModes).toEqual(['before', 'after', 'split']);
   });
 });

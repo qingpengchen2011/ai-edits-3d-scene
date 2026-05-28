@@ -493,6 +493,11 @@ a:focus-visible {
   font-weight: 900;
 }
 
+.viewport-footer button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .diff-list {
   display: flex;
   flex-direction: column;

@@ -4,6 +4,7 @@ const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected a #RRGGBB
 
 export const editTargetSchema = z.enum(['full-scene', 'material', 'lighting', 'camera', 'environment', 'hud']);
 export type EditTarget = z.infer<typeof editTargetSchema>;
+export const comparisonReplayModes = ['before', 'after', 'split'] as const;
 
 export const scenePatchSchema = z.object({
   title: z.string().min(3),

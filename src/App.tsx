@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, ExternalLink, Github, GitCompare, Loader2, Play, SlidersHorizontal, Sparkles } from 'lucide-react';
 import SceneCanvas, { type ViewMode } from './components/SceneCanvas';
 import {
   applyScenePatch,
   actualSceneDiff,
+  comparisonReplayModes,
   createBaseScene,
   presetPatches,
   type EditTarget,
@@ -51,6 +52,8 @@ export default function App() {
   const [status, setStatus] = useState<ApiStatus | null>(null);
   const [agentError, setAgentError] = useState('');
   const [isRunningAgent, setIsRunningAgent] = useState(false);
+  const [isReplaying, setIsReplaying] = useState(false);
+  const replayTimers = useRef<number[]>([]);
   const patchPreview = useMemo(() => buildPatchPreview(sceneState), [sceneState]);
 
   useEffect(() => {
@@ -60,6 +63,32 @@ export default function App() {
       .catch(() => setStatus({ hasOpenRouterKey: false, model: 'z-ai/glm-5.1', agent: 'deepagentsjs' }));
   }, []);
 
+  useEffect(() => () => clearReplayTimers(), []);
+
+  function clearReplayTimers() {
+    for (const timer of replayTimers.current) {
+      window.clearTimeout(timer);
+    }
+    replayTimers.current = [];
+  }
+
+  function replayComparison() {
+    clearReplayTimers();
+    setIsReplaying(true);
+    comparisonReplayModes.forEach((mode, index) => {
+      replayTimers.current.push(
+        window.setTimeout(() => {
+          setViewMode(mode);
+        }, index * 850),
+      );
+    });
+    replayTimers.current.push(
+      window.setTimeout(() => {
+        setIsReplaying(false);
+      }, comparisonReplayModes.length * 850),
+    );
+  }
+
   function applyPreset(id: keyof typeof presetPatches) {
     const patch = presetPatches[id];
     setPrompt(presetButtons.find((item) => item.id === id)?.prompt ?? prompt);
@@ -68,6 +97,8 @@ export default function App() {
     setSceneState(applyScenePatch(baseScene, patch));
     setChangeSource(`Preset: ${patch.title}`);
     setViewMode('after');
+    setIsReplaying(false);
+    clearReplayTimers();
     setAgentError('');
   }
 
@@ -91,6 +122,8 @@ export default function App() {
       setSelectedPreset(null);
       setChangeSource(`GLM generated: ${editTargets.find((item) => item.id === editTarget)?.label ?? editTarget}`);
       setViewMode('split');
+      setIsReplaying(false);
+      clearReplayTimers();
     } catch (error) {
       setAgentError(error instanceof Error ? error.message : 'Unknown agent error');
     } finally {
@@ -223,9 +256,9 @@ export default function App() {
               <span />
               {footerText(viewMode, sceneState)}
             </div>
-            <button type="button" onClick={() => setSceneState({ ...sceneState })}>
+            <button type="button" onClick={replayComparison} disabled={isReplaying}>
               <Play size={17} />
-              Replay edit
+              {isReplaying ? 'Replaying...' : 'Replay compare'}
             </button>
           </div>
         </section>
