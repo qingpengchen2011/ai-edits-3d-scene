@@ -141,7 +141,8 @@ a {
 .prompt-input,
 .x-hook,
 .patch-box,
-.publish-gate {
+.publish-gate,
+.target-switcher {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -175,9 +176,11 @@ a {
 
 .preset-list button,
 .agent-button,
-.viewport-footer button {
+.viewport-footer button,
+.target-switcher button,
+.view-switcher button {
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
@@ -214,6 +217,48 @@ a {
 
 .preset-list button.active span {
   color: #060708;
+}
+
+.target-switcher {
+  padding: 14px;
+  border: 1px solid #303844;
+  border-radius: 10px;
+  background: #181c22;
+}
+
+.target-switcher > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffb000;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.target-switcher > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.target-switcher button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid #394250;
+  color: #f5f1e8;
+  background: transparent;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 900;
+}
+
+.target-switcher button.active {
+  border-color: #5de0c5;
+  color: #060708;
+  background: #5de0c5;
 }
 
 .prompt-input {
@@ -342,6 +387,36 @@ a:focus-visible {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.view-switcher {
+  max-width: 390px;
+  padding: 8px;
+  border: 1px solid rgba(255, 176, 0, 0.72);
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  color: #ffb000;
+  background: rgba(6, 7, 8, 0.62);
+  backdrop-filter: blur(8px);
+}
+
+.view-switcher button {
+  min-height: 34px;
+  padding: 0 10px;
+  color: #f5f1e8;
+  background: transparent;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 900;
+}
+
+.view-switcher button.active {
+  color: #060708;
+  background: #ffb000;
 }
 
 .diff-pill {
@@ -574,5 +649,9 @@ a:focus-visible {
   .panel-intro h2 {
     font-size: 32px;
     line-height: 36px;
+  }
+
+  .view-switcher {
+    justify-content: flex-start;
   }
 }

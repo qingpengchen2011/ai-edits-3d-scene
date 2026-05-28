@@ -8,6 +8,7 @@ This repo is built to be recorded and shared. The deterministic preset buttons a
 
 - React + Vite UI with a live WebGL canvas.
 - Three.js scene state for material, lighting, camera, and environment.
+- A richer base scene with a copilot console, HUD panels, telemetry bars, scan rings, and split comparison.
 - DeepAgentsJS agent with a local scene-editor skill.
 - LangChain OpenRouter integration using `z-ai/glm-5.1` by default.
 - A strict Zod schema so model output becomes a safe, inspectable scene patch.
@@ -31,8 +32,14 @@ The agent is intentionally not allowed to write arbitrary scene code. It edits a
 - `lighting`: key/rim color and intensity
 - `camera`: distance, height, orbit speed
 - `environment`: background, fog, floor color
+- `hud`: telemetry colors, panel color, grid color, density, scan speed
 - `diff`: human-readable before/after rows for the post
 - `xHook`: short social copy
+
+The UI also includes focused edit targets and comparison modes:
+
+- Edit targets: full scene, material, lighting, camera, environment, HUD accents
+- View modes: before, AI edit, split compare, diff highlight
 
 ## Run Locally
 

@@ -3,7 +3,13 @@ import { ChatOpenRouter } from '@langchain/openrouter';
 import { createDeepAgent, FilesystemBackend } from 'deepagents';
 import { MemorySaver } from '@langchain/langgraph';
 import { z } from 'zod';
-import { type ScenePatch, type SceneState, scenePatchSchema } from '../src/domain/scene.js';
+import {
+  editTargetInstruction,
+  type EditTarget,
+  type ScenePatch,
+  type SceneState,
+  scenePatchSchema,
+} from '../src/domain/scene.js';
 
 const inspectSceneSchema = z.object({
   reason: z.string().optional(),
@@ -12,6 +18,7 @@ const inspectSceneSchema = z.object({
 export type AgentEditRequest = {
   prompt: string;
   scene: SceneState;
+  editTarget?: EditTarget;
   threadId?: string;
 };
 
@@ -77,11 +84,15 @@ export async function runSceneEditAgent(request: AgentEditRequest): Promise<Agen
       'Your job is to convert a user prompt into a constrained scene patch.',
       'First inspect the scene with inspect_scene.',
       'Then call apply_scene_patch exactly once.',
-      'The patch must visibly alter material, lighting, camera, and environment.',
+      'The patch must include material, lighting, camera, environment, and HUD fields.',
+      'When a focused edit target is provided, keep unrelated fields close to the inspected scene and make the target visibly change.',
+      'For focused edits, put the focused target first in diff and avoid claiming unchanged targets changed.',
       'Keep values within the provided tool schema.',
       'Prefer a striking, recordable before/after visual over subtle edits.',
     ].join('\n'),
   });
+
+  const editTarget = request.editTarget || 'full-scene';
 
   await agent.invoke(
     {
@@ -90,6 +101,8 @@ export async function runSceneEditAgent(request: AgentEditRequest): Promise<Agen
           role: 'user',
           content: [
             `Prompt: ${request.prompt}`,
+            `Edit target: ${editTarget}`,
+            `Target guidance: ${editTargetInstruction(editTarget)}`,
             '',
             'Create a strong visual edit for the current scene.',
             'The result must be suitable for an X demo video and must include a concise xHook.',

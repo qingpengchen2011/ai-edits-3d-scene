@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { applyScenePatch, createBaseScene, scenePatchSchema } from './scene';
+import {
+  applyScenePatch,
+  changedTargets,
+  createBaseScene,
+  editTargetInstruction,
+  editTargetSchema,
+  presetPatches,
+  scenePatchSchema,
+} from './scene';
 
 describe('scene patch model', () => {
   it('applies material, lighting, camera, and environment changes', () => {
@@ -31,10 +39,19 @@ describe('scene patch model', () => {
         fogColor: '#0b1419',
         floorColor: '#121820',
       },
+      hud: {
+        primaryColor: '#ffb000',
+        secondaryColor: '#5de0c5',
+        panelColor: '#111827',
+        gridColor: '#ffb000',
+        density: 0.72,
+        scanSpeed: 0.34,
+      },
       diff: [
         { target: 'material', before: 'matte shell', after: 'emissive amber glass' },
         { target: 'lighting', before: 'soft room light', after: 'hard rim light' },
         { target: 'camera', before: 'static front', after: 'orbit reveal shot' },
+        { target: 'hud', before: 'quiet console', after: 'amber telemetry field' },
       ],
       xHook: 'I gave an AI a Three.js scene. It edited the lighting, material, camera, and mood.',
     });
@@ -47,7 +64,34 @@ describe('scene patch model', () => {
     expect(edited.lighting.keyIntensity).toBe(4.8);
     expect(edited.camera.orbitSpeed).toBe(0.42);
     expect(edited.environment.fogColor).toBe('#0b1419');
-    expect(edited.diff).toHaveLength(3);
+    expect(edited.hud.primaryColor).toBe('#ffb000');
+    expect(edited.diff).toHaveLength(4);
     expect(scene.material.bodyColor).not.toBe(edited.material.bodyColor);
+    expect(scene.hud.primaryColor).not.toBe(edited.hud.primaryColor);
+  });
+
+  it('describes focused edit targets for the agent', () => {
+    expect(editTargetSchema.parse('hud')).toBe('hud');
+    expect(editTargetInstruction('material')).toContain('material');
+    expect(editTargetInstruction('hud')).toContain('HUD');
+    expect(editTargetInstruction('full-scene')).toContain('whole scene');
+  });
+
+  it('detects actual changed targets between scene versions', () => {
+    const before = applyScenePatch(createBaseScene(), presetPatches.cyberpunk);
+    const after = {
+      ...before,
+      hud: {
+        ...before.hud,
+        primaryColor: '#ff2d6f',
+        density: 0.95,
+      },
+      diff: [
+        { target: 'hud' as const, before: 'amber telemetry', after: 'magenta data storm' },
+        { target: 'material' as const, before: 'same material', after: 'same material' },
+      ],
+    };
+
+    expect(changedTargets(before, after)).toEqual(['hud']);
   });
 });

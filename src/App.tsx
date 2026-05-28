@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Box, ExternalLink, Github, Loader2, Play, Sparkles } from 'lucide-react';
-import SceneCanvas from './components/SceneCanvas';
-import { applyScenePatch, createBaseScene, presetPatches, type ScenePatch, type SceneState } from './domain/scene';
+import { Box, ExternalLink, Github, GitCompare, Loader2, Play, SlidersHorizontal, Sparkles } from 'lucide-react';
+import SceneCanvas, { type ViewMode } from './components/SceneCanvas';
+import {
+  applyScenePatch,
+  actualSceneDiff,
+  createBaseScene,
+  presetPatches,
+  type EditTarget,
+  type ScenePatch,
+  type SceneState,
+} from './domain/scene';
 
 type ApiStatus = {
   hasOpenRouterKey: boolean;
@@ -13,12 +21,32 @@ const presetButtons = [
   { id: 'cyberpunk', label: 'Cyberpunk product shot', prompt: 'Make it a cyberpunk product shot' },
   { id: 'glass', label: 'Glass teardown', prompt: 'Turn the robot into glass' },
   { id: 'trailer', label: 'Launch trailer', prompt: 'Move camera into trailer mode' },
+] as const;
+
+const editTargets: Array<{ id: EditTarget; label: string }> = [
+  { id: 'full-scene', label: 'Full scene' },
+  { id: 'material', label: 'Material' },
+  { id: 'lighting', label: 'Lighting' },
+  { id: 'camera', label: 'Camera' },
+  { id: 'environment', label: 'Environment' },
+  { id: 'hud', label: 'HUD accents' },
+];
+
+const viewModes: Array<{ id: ViewMode; label: string }> = [
+  { id: 'before', label: 'Before' },
+  { id: 'after', label: 'AI edit' },
+  { id: 'split', label: 'Split' },
+  { id: 'diff', label: 'Diff' },
 ];
 
 export default function App() {
   const [baseScene] = useState(() => createBaseScene());
+  const [beforeScene, setBeforeScene] = useState<SceneState>(() => createBaseScene());
   const [sceneState, setSceneState] = useState<SceneState>(() => applyScenePatch(createBaseScene(), presetPatches.cyberpunk));
-  const [selectedPreset, setSelectedPreset] = useState<keyof typeof presetPatches>('cyberpunk');
+  const [selectedPreset, setSelectedPreset] = useState<keyof typeof presetPatches | null>('cyberpunk');
+  const [viewMode, setViewMode] = useState<ViewMode>('after');
+  const [editTarget, setEditTarget] = useState<EditTarget>('full-scene');
+  const [changeSource, setChangeSource] = useState('Preset: Cyberpunk product shot');
   const [prompt, setPrompt] = useState('Make it a cyberpunk product shot');
   const [status, setStatus] = useState<ApiStatus | null>(null);
   const [agentError, setAgentError] = useState('');
@@ -36,24 +64,33 @@ export default function App() {
     const patch = presetPatches[id];
     setPrompt(presetButtons.find((item) => item.id === id)?.prompt ?? prompt);
     setSelectedPreset(id);
+    setBeforeScene(baseScene);
     setSceneState(applyScenePatch(baseScene, patch));
+    setChangeSource(`Preset: ${patch.title}`);
+    setViewMode('after');
     setAgentError('');
   }
 
   async function runAgent() {
     setIsRunningAgent(true);
     setAgentError('');
+    const previousScene = sceneState;
     try {
       const response = await fetch('/api/edit-scene', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, scene: sceneState, threadId: 'demo-thread' }),
+        body: JSON.stringify({ prompt, scene: sceneState, editTarget, threadId: 'demo-thread' }),
       });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Agent request failed');
       }
-      setSceneState(applyScenePatch(baseScene, data.patch as ScenePatch));
+      const editedScene = applyScenePatch(previousScene, data.patch as ScenePatch);
+      setBeforeScene(previousScene);
+      setSceneState({ ...editedScene, diff: actualSceneDiff(previousScene, editedScene) });
+      setSelectedPreset(null);
+      setChangeSource(`GLM generated: ${editTargets.find((item) => item.id === editTarget)?.label ?? editTarget}`);
+      setViewMode('split');
     } catch (error) {
       setAgentError(error instanceof Error ? error.message : 'Unknown agent error');
     } finally {
@@ -91,7 +128,7 @@ export default function App() {
           <div className="panel-intro">
             <span>Prompt presets</span>
             <h2>Tell the agent what mood to build.</h2>
-            <p>Preset buttons are deterministic for recording. The agent button calls DeepAgentsJS and OpenRouter when your key is set.</p>
+            <p>Preset buttons are deterministic for recording. The target switch lets GLM focus the edit.</p>
           </div>
 
           <div className="preset-list">
@@ -108,9 +145,34 @@ export default function App() {
             ))}
           </div>
 
+          <div className="target-switcher">
+            <span>
+              <SlidersHorizontal size={15} />
+              Edit target
+            </span>
+            <div>
+              {editTargets.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={editTarget === item.id ? 'active' : ''}
+                  onClick={() => setEditTarget(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <label className="prompt-input">
             Custom prompt
-            <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} />
+            <textarea
+              value={prompt}
+              onChange={(event) => {
+                setPrompt(event.target.value);
+                setSelectedPreset(null);
+              }}
+            />
           </label>
 
           <button className="agent-button" type="button" onClick={runAgent} disabled={isRunningAgent}>
@@ -130,22 +192,36 @@ export default function App() {
         <section
           className="viewport-panel"
           style={{
-            background: `linear-gradient(180deg, ${sceneState.environment.backgroundTop}, ${sceneState.environment.backgroundBottom})`,
+            background: `linear-gradient(180deg, ${displayedScene(viewMode, beforeScene, sceneState).environment.backgroundTop}, ${
+              displayedScene(viewMode, beforeScene, sceneState).environment.backgroundBottom
+            })`,
           }}
         >
           <div className="viewport-heading">
             <div>
               <span>Live scene</span>
-              <h2>{sceneState.title}</h2>
-              <small>Before -&gt; AI edited</small>
+              <h2>{displayTitle(viewMode, beforeScene, sceneState)}</h2>
+              <small>{changeSource}</small>
             </div>
-            <div className="diff-pill">diff mode on</div>
+            <div className="view-switcher" aria-label="Scene comparison mode">
+              <GitCompare size={16} />
+              {viewModes.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={viewMode === item.id ? 'active' : ''}
+                  onClick={() => setViewMode(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <SceneCanvas sceneState={sceneState} />
+          <SceneCanvas sceneState={sceneState} beforeState={beforeScene} viewMode={viewMode} />
           <div className="viewport-footer">
             <div>
               <span />
-              AI changed {sceneState.diff.length} scene properties: {sceneState.diff.map((item) => item.target).join(', ')}.
+              {footerText(viewMode, sceneState)}
             </div>
             <button type="button" onClick={() => setSceneState({ ...sceneState })}>
               <Play size={17} />
@@ -201,5 +277,37 @@ function buildPatchPreview(sceneState: SceneState): string {
     `light.intensity = ${sceneState.lighting.keyIntensity}`,
     `camera.orbitSpeed = ${sceneState.camera.orbitSpeed}`,
     `fog.color = ${sceneState.environment.fogColor}`,
+    `hud.primary = ${sceneState.hud.primaryColor}`,
+    `hud.density = ${sceneState.hud.density}`,
   ].join('\n');
+}
+
+function displayedScene(viewMode: ViewMode, beforeScene: SceneState, sceneState: SceneState): SceneState {
+  return viewMode === 'before' ? beforeScene : sceneState;
+}
+
+function displayTitle(viewMode: ViewMode, beforeScene: SceneState, sceneState: SceneState): string {
+  if (viewMode === 'before') {
+    return beforeScene.title;
+  }
+  if (viewMode === 'split') {
+    return 'Before / AI Edit';
+  }
+  if (viewMode === 'diff') {
+    return 'Changed Scene Diff';
+  }
+  return sceneState.title;
+}
+
+function footerText(viewMode: ViewMode, sceneState: SceneState): string {
+  if (viewMode === 'before') {
+    return 'Showing the scene before the last AI or preset edit.';
+  }
+  if (viewMode === 'split') {
+    return `Split compare: left is before, right is the AI edit across ${sceneState.diff.length} changed targets.`;
+  }
+  if (viewMode === 'diff') {
+    return `Diff mode highlights changed targets: ${sceneState.diff.map((item) => item.target).join(', ')}.`;
+  }
+  return `AI changed ${sceneState.diff.length} scene properties: ${sceneState.diff.map((item) => item.target).join(', ')}.`;
 }

@@ -2,7 +2,7 @@ import express from 'express';
 import { createServer as createViteServer, loadEnv } from 'vite';
 import { z } from 'zod';
 import { hasOpenRouterKey, getOpenRouterModel, runSceneEditAgent } from './agent.js';
-import { createBaseScene } from '../src/domain/scene.js';
+import { createBaseScene, editTargetSchema } from '../src/domain/scene.js';
 
 const localEnv = loadEnv(process.env.NODE_ENV || 'development', process.cwd(), '');
 for (const [key, value] of Object.entries(localEnv)) {
@@ -13,6 +13,7 @@ for (const [key, value] of Object.entries(localEnv)) {
 
 const editRequestSchema = z.object({
   prompt: z.string().min(3),
+  editTarget: editTargetSchema.optional(),
   scene: z.unknown().optional(),
   threadId: z.string().optional(),
 });
@@ -49,6 +50,7 @@ app.post('/api/edit-scene', async (request, response) => {
     const result = await runSceneEditAgent({
       prompt: parsed.data.prompt,
       scene: (parsed.data.scene as ReturnType<typeof createBaseScene> | undefined) || createBaseScene(),
+      editTarget: parsed.data.editTarget,
       threadId: parsed.data.threadId,
     });
     response.json(result);
